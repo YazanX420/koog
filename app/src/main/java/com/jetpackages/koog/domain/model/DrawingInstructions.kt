@@ -1,4 +1,4 @@
-package com.jetpackages.koog.domain
+package com.jetpackages.koog.domain.model
 
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import androidx.compose.ui.graphics.Color

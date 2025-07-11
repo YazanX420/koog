@@ -1,22 +1,19 @@
 package com.jetpackages.koog.presentation
 
-import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.executor.clients.google.GoogleModels
-import ai.koog.prompt.executor.llms.all.simpleGoogleAIExecutor
-import ai.koog.prompt.structure.executeStructured
-import ai.koog.prompt.structure.json.JsonSchemaGenerator
-import ai.koog.prompt.structure.json.JsonStructuredData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jetpackages.koog.data.Keys.GEMINI_API_KEY
-import com.jetpackages.koog.domain.DrawingInstructions
+import com.jetpackages.koog.data.drawing_agent.KoogDrawingAgent
+import com.jetpackages.koog.domain.model.DrawingInstructions
+import com.jetpackages.koog.domain.structured_ai_agent.StructuredAiAgent
+import ai.koog.prompt.executor.llms.all.simpleGoogleAIExecutor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * This VM will take the user query, and use a Koog AI Agent to convert it
- * into a structured list of coordinates for drawing on the UI (Compose Canvas).
+ * This VM coordinates the UI state and delegates the AI logic to a StructuredAiAgent.
+ * It is now completely decoupled from the specific Koog implementation.
  **/
 class AgentViewModel : ViewModel() {
 
@@ -31,49 +28,33 @@ class AgentViewModel : ViewModel() {
     private val _drawingInstructions = MutableStateFlow<DrawingInstructions?>(null)
     val drawingInstructions = _drawingInstructions.asStateFlow()
 
-    // --- 1. Create a Prompt Executor (as you already had) ---
-    private val executor = simpleGoogleAIExecutor(GEMINI_API_KEY)
+    // --- 1. Define the Agent's Core "Personality" ---
+    private val drawingSystemPrompt = """
+        You are an expert drawing assistant. Your task is to convert a user's textual
+        description into a structured list of shapes to be drawn on a 100x100 canvas.
+        The origin (0,0) is the top-left corner.
+        The point (100,100) is the bottom-right corner.
+        Analyze the user's request and provide the corresponding shape instructions.
+    """.trimIndent()
 
-    // --- 2. Generate the JSON Schema from our Data Class ---
-    // This creates the `structure` object required by the `executeStructured` function.
-    private val drawingInstructionsStructure = JsonStructuredData.createJsonStructure<DrawingInstructions>(
-        schemaFormat = JsonSchemaGenerator.SchemaFormat.JsonSchema,
-        schemaType = JsonStructuredData.JsonSchemaType.SIMPLE
-    )
+    // --- 2. Create an instance of our agent using the interface ---
+    // We can easily swap KoogDrawingAgent with another implementation in the future.
+    private val drawingAgent: StructuredAiAgent<String, DrawingInstructions> =
+        KoogDrawingAgent(executor = simpleGoogleAIExecutor(GEMINI_API_KEY))
+
 
     /**
-     * This function is called when the user clicks the "Draw!" button.
-     * It launches a coroutine to run our Koog agent.
+     * This function now simply calls our abstracted agent.
      */
     fun draw() {
         if (query.value.isBlank()) return
 
         viewModelScope.launch {
-            // --- 3. Call executeStructured ---
-            // This is the correct function from the documentation for a single, structured call.
-            val result = executor.executeStructured(
-                // The prompt contains the system instructions and the user's specific query
-                prompt = prompt("drawing-prompt") {
-                    system(
-                        """
-                        You are an expert drawing assistant. Your task is to convert a user's textual
-                        description into a structured list of shapes to be drawn on a 100x100 canvas.
-                        The origin (0,0) is the top-left corner.
-                        The point (100,100) is the bottom-right corner.
-                        Analyze the user's request and provide the corresponding shape instructions.
-                        """
-                    )
-                    user(query.value)
-                },
-                // Pass the schema we generated
-                structure = drawingInstructionsStructure,
-                // Define the model to use for the main request and for fixing any errors
-                mainModel = GoogleModels.Gemini1_5FlashLatest,
-                fixingModel = GoogleModels.Gemini1_5FlashLatest
+            val result = drawingAgent.generateResponse(
+                input = query.value,
+                systemPrompt = drawingSystemPrompt
             )
-
-            // Update the state with the AI's response to trigger a UI redraw.
-            _drawingInstructions.value = result.getOrNull()?.structure
+            _drawingInstructions.value = result
         }
     }
 

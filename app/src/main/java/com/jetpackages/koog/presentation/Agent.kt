@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jetpackages.koog.R
-import com.jetpackages.koog.domain.ShapeType
-import com.jetpackages.koog.domain.toComposeColor
+import com.jetpackages.koog.domain.model.ShapeType
+import com.jetpackages.koog.domain.model.toComposeColor
 
 /**
  * This Agent will take user inputs about drawing anything, and send it to the VM.
