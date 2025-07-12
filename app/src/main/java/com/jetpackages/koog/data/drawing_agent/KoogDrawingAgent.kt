@@ -2,6 +2,7 @@ package com.jetpackages.koog.data.drawing_agent
 
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.google.GoogleModels
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.structure.executeStructured
 import ai.koog.prompt.structure.json.JsonSchemaGenerator
@@ -36,8 +37,8 @@ class KoogDrawingAgent(
                 user(input)
             },
             structure = drawingInstructionsStructure,
-            mainModel = GoogleModels.Gemini1_5FlashLatest,
-            fixingModel = GoogleModels.Gemini1_5FlashLatest
+            mainModel = OpenAIModels.Chat.GPT4o,
+            fixingModel = OpenAIModels.Chat.GPT4o
         )
 
         return result.getOrNull()?.structure
